@@ -2,3 +2,7 @@ streamlit
 pandas
 scikit-learn
 joblib
+fastapi
+uvicorn[standard]
+pydantic
+requests
