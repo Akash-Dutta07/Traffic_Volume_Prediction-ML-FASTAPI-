@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Keep model files for deployment
+!*.joblib
+!*.pkl
+!*.model

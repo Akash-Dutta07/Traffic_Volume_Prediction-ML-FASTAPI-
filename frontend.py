@@ -1,13 +1,35 @@
 import streamlit as st
-import requests
-import json
+import pandas as pd
+import joblib
+import os
 st.set_page_config(page_title="Metro Traffic Volume Predictor", layout="wide")
+
+# Load the model
+@st.cache_resource
+def load_model():
+    """Load the trained model pipeline"""
+    try:
+        model_pipeline = joblib.load('traffic_model_pipeline.joblib')
+        return model_pipeline
+    except FileNotFoundError:
+        st.error("Model file 'traffic_model_pipeline.joblib' not found. Please ensure the model file is in the repository.")
+        return None
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
+
+# Load model
+model_pipeline = load_model()
+
 st.title("🚇 Metro Interstate Traffic Volume Predictor")
 
 st.markdown("""
 This app predicts the hourly traffic volume on a metropolitan interstate highway.
 Use the sidebar to input the conditions and see the predicted traffic volume.
 """)
+
+if model_pipeline is None:
+    st.stop()
 
 st.sidebar.header("Input Features")
 
@@ -69,17 +91,25 @@ with col3:
     st.info(f"*Rush Hour:* {'Yes' if input_data['is_rush_hour'] == 1 else 'No'}")
 
 if st.button("Predict Traffic Volume", key="predict_button"):
-
-    api_url = "http://127.0.0.1:8000/predict"
     try:
-        response = requests.post(api_url, data=json.dumps(input_data))
-        response.raise_for_status()
-
-        prediction = response.json()
-        volume = prediction.get('predicted_traffic_volume', 'N/A')
-
-        st.success(f"*Predicted Traffic Volume:*")
-        st.markdown(f"<h2 style='text-align: center; color: green;'>{volume} vehicles/hour</h2>", unsafe_allow_html=True)
-
-    except requests.exceptions.RequestException as e:
-        st.error(f"Could not connect to the API. Please ensure the FastAPI server is running. Error: {e}")
+        # Convert input data to DataFrame
+        input_df = pd.DataFrame([input_data])
+        
+        # Make prediction
+        prediction = model_pipeline.predict(input_df)
+        predicted_volume = int(prediction[0])
+        
+        st.success("**Predicted Traffic Volume:**")
+        st.markdown(f"<h2 style='text-align: center; color: green;'>{predicted_volume:,} vehicles/hour</h2>", unsafe_allow_html=True)
+        
+        # Add some additional context
+        if predicted_volume > 4000:
+            st.warning("⚠️ High traffic volume expected!")
+        elif predicted_volume < 1500:
+            st.info("ℹ️ Low traffic volume expected.")
+        else:
+            st.success("✅ Moderate traffic volume expected.")
+            
+    except Exception as e:
+        st.error(f"Error making prediction: {e}")
+        st.info("Please check that all input values are valid.")
